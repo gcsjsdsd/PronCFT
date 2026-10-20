@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: "If you use PronCFT or these tools, please cite the paper below."
+title: "PronCFT: Pronunciation Contextual Fine-Tuning for Contextual Biasing of Out-of-Vocabulary Words in LLM-Based ASR"
+type: software
+authors:
+  - family-names: Xu
+    given-names: Yifan
+  - family-names: Huang
+    given-names: Kaixun
+  - family-names: Geng
+    given-names: Mengzhe
+  - family-names: Cui
+    given-names: Mingyu
+  - family-names: Huang
+    given-names: Shen
+  - family-names: Shang
+    given-names: Shidong
+  - family-names: Liu
+    given-names: Xunying
+repository-code: "https://github.com/gcsjsdsd/PronCFT"
+url: "https://arxiv.org/abs/2610.25766"
+preferred-citation:
+  type: article
+  title: "PronCFT: Pronunciation Contextual Fine-Tuning for Contextual Biasing of Out-of-Vocabulary Words in LLM-Based ASR"
+  authors:
+    - family-names: Xu
+      given-names: Yifan
+    - family-names: Huang
+      given-names: Kaixun
+    - family-names: Geng
+      given-names: Mengzhe
+    - family-names: Cui
+      given-names: Mingyu
+    - family-names: Huang
+      given-names: Shen
+    - family-names: Shang
+      given-names: Shidong
+    - family-names: Liu
+      given-names: Xunying
+  journal: arXiv
+  year: 2026
+  date-published: 2026-10-19
+  doi: "10.48550/arXiv.2610.25766"
+  url: "https://arxiv.org/abs/2610.25766"
