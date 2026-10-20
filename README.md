@@ -2,76 +2,76 @@
 
 **Pronunciation Contextual Fine-Tuning for Contextual Biasing of Out-of-Vocabulary Words in LLM-Based ASR**
 
-[论文 · arXiv:2610.25766](https://arxiv.org/abs/2610.25766) · [PDF](https://arxiv.org/pdf/2610.25766) · [数据工具](docs/data-tools.md) · [评测与发布范围](docs/evaluation.md)
+[Paper (arXiv:2610.25766)](https://arxiv.org/abs/2610.25766)
 
 Yifan Xu, Kaixun Huang, Mengzhe Geng, Mingyu Cui, Shen Huang, Shidong Shang, Xunying Liu
 
 The Chinese University of Hong Kong · Tenlai Team
 
-本仓库介绍 **PronCFT 论文**，并提供与论文相关的**测试数据错拼变体构造与拼写召回评分工具**。当前发布的是部分数据工具；完整测试集、模型权重及训练／推理实现尚未包含在仓库中。
+This repository introduces PronCFT and releases tools for constructing misspelled test variants and scoring spelling recall.
 
-## 研究问题
+## Overview
 
-基于大语言模型的自动语音识别（LLM-based ASR）容易把罕见词和词表外词（OOV）识别为发音相近的常见词。仅提供候选词及其音素（表示发音的符号序列），也不保证模型会将候选发音与语音内容对应起来：模型可能只把音素标注的存在当作选择候选词的提示。
+Large language model (LLM) based automatic speech recognition (ASR) can replace rare or out-of-vocabulary (OOV) words with familiar words that sound similar. PronCFT teaches the model to connect speech, candidate pronunciations, and output spellings through phoneme transcription and candidate matching. Phonemes are symbols representing speech sounds.
 
-## 方法概览
+Spelling augmentation changes candidate spellings while retaining their stored pronunciations. A training curriculum then progressively removes intermediate outputs, producing PronCFT-C.
 
-PronCFT 训练模型建立语音、候选发音与输出拼写之间的联系：
+## Main Results and Training Setup
 
-1. **结构化监督**：先输出语句的音素，再输出与候选词的匹配结果，最后生成转写文本。
-2. **拼写扰动**：改变候选词拼写，保留其已存储的音素标签，并同步对应输出，减少对熟悉拼写的依赖。
-3. **逐阶段移除中间输出**：通过课程训练逐步去掉辅助输出，得到 PronCFT-C，以降低解码开销和中间错误的传播。
+All three systems use **Qwen3-ASR-1.7B** and are fine-tuned on **GigaSpeech**. The audio encoder and adaptor are frozen; only the LLM is updated. The common fine-tuning setup uses one epoch, a global batch size of 384, a maximum sequence length of 2,048, and a learning rate from 1e-5 to 1e-6.
 
-论文基于 Qwen3-ASR-1.7B，冻结音频编码器与适配器，只微调大语言模型。完整方法和实验条件以[论文](https://arxiv.org/abs/2610.25766)为准。
-
-## 主要结果
-
-下表摘录论文 Table 2 的各系统最佳报告设置及 Table 3 的平均词错误率（WER，衡量转写错误的比例；越低越好）。不同系统的最佳输出设置不同，详见论文。
-
-| 系统 | OOV 召回率 ↑ | 通用测试集平均 WER ↓ |
-|---|---:|---:|
-| Giga-SFT | 59.89% | 6.05% |
-| PronCFT | 74.12% | 6.02% |
-| PronCFT-C | **83.57%** | **6.01%** |
-
-OOV 评测集包含从公开语音基准筛选的 10,533 句；PronCFT-C 相比 Giga-SFT 的召回率提高 **23.68 个百分点**。论文还使用错拼干扰和错误音素对照，检查模型是否依赖候选发音内容。
-
-**这些是论文报告的实验结果，不是运行本仓库人工示例得到的结果。**
-
-## 已发布的数据工具
-
-| 文件 | 功能 |
+| System | How it is trained |
 |---|---|
-| [make_misspell_phonectx.py](make_misspell_phonectx.py) | 构造普通转写的错拼变体，或只扰动候选列表的对照数据 |
-| [build_misspell_cot.py](build_misspell_cot.py) | 构造带 `<phoneme>/<match>` 标注的错拼变体，并同步标签 |
-| [compute_misspell_recall.py](compute_misspell_recall.py) | 统计替换拼写、原拼写、双命中、未命中与缺失预测 |
-| [misspell_rules.py](misspell_rules.py) / [misspell_io.py](misspell_io.py) | 拼写编辑规则、词表过滤、输入输出与文本替换 |
-| [examples/](examples/) / [test_misspell.py](test_misspell.py) | 人工输入示例与单元测试 |
+| **Giga-SFT** | Baseline supervised fine-tuning on speech transcription, without phoneme annotations or auxiliary output targets. |
+| **PronCFT** | Adds supervision for utterance phonemes, candidate matching, and final transcription. All context candidates carry pronunciations. Structured auxiliary targets are included in 50% of training samples; 65% of those samples also use spelling augmentation with the stored phonemes unchanged. |
+| **PronCFT-C** | Curriculum-trained version of PronCFT. Starting at 20k updates, five stages (L0–L4), each lasting 1.5k updates, progressively mask/remove phoneme outputs, simplify matching outputs, and reach transcription-only output. After L0, loss is computed only on transcription tokens; audio, context prompts, and spelling augmentation are kept fixed. |
 
-这些工具接收调用方准备的转写、候选词、音素和目标标签，不负责从原始语音基准筛选 OOV 样本或生成发音。它们保持输入音素标签，不验证新拼写按自然英语规则是否同音。
+The OOV evaluation set contains **10,533 sentences**. OOV targets are absent from CMUdict, a pronunciation dictionary, and do not overlap with the training vocabulary. Systems receive the same seeded candidate lists.
 
-## 快速开始
+| System | OOV recall: transcription only, no phonemes | OOV recall: transcription only, with phonemes | OOV recall: structured output, with phonemes | General ASR average WER |
+|---|---:|---:|---:|---:|
+| Giga-SFT | 59.89% | — | — | 6.05% |
+| PronCFT | 61.46% | 65.45% | 74.12% | 6.02% |
+| PronCFT-C | 61.08% | 70.64% | **83.57%** | **6.01%** |
 
-仅使用 Python 标准库，建议 Python 3.8 或以上。以下命令在仓库根目录执行，输出文件须尚不存在。
+OOV recall measures recovery of the target words; higher is better. Word error rate (WER) measures transcription errors; lower is better. The recall columns preserve the evaluation labels in Table 2; average WER comes from Table 3 and is the macro-average across six test sets.
+
+The best reported OOV recall improves from **59.89% to 83.57% (+23.68 percentage points)**. These are paper results; the columns distinguish decoding conditions rather than comparing every system under one output format.
+
+## Released Data Tools
+
+| File | Purpose |
+|---|---|
+| [make_misspell_phonectx.py](make_misspell_phonectx.py) | Generate spelling variants of plain transcripts, or perturb candidate spellings while keeping the reference transcript unchanged. |
+| [build_misspell_cot.py](build_misspell_cot.py) | Generate variants of text with `<phoneme>/<match>` annotations and synchronize transcript and target labels. |
+| [compute_misspell_recall.py](compute_misspell_recall.py) | Count replacement-only, original-only, both, neither, and missing-prediction outcomes. |
+| [misspell_rules.py](misspell_rules.py) / [misspell_io.py](misspell_io.py) | Spelling edits, vocabulary filtering, text replacement, and JSONL input/output. |
+| [examples/](examples/) / [test_misspell.py](test_misspell.py) | Synthetic examples and unit tests. |
+
+The tools take prepared transcripts, candidates, phonemes, and target labels. They preserve supplied phoneme labels rather than verifying that a new spelling naturally has the same pronunciation.
+
+This release contains partial data tools. Full test sets, model weights, and training/inference implementations are not included.
+
+## Quick Start
+
+Python 3.8+ is recommended. No third-party packages are required. Run these commands from the repository root; output files must not already exist.
 
 ```bash
-# 构造错拼变体，同时更新转写与目标标签
+# Change candidate spellings and synchronize transcripts and target labels.
 python3 make_misspell_phonectx.py --in examples/plain.jsonl --out plain_misspell.jsonl --vocab examples/vocab.txt --prob 0.5 --seed 42
 
-# 只改目标候选的拼写，保留原始参考转写
+# Change only target candidate spellings; keep the reference transcript.
 python3 make_misspell_phonectx.py --in examples/plain.jsonl --out context_misspell.jsonl --vocab examples/vocab.txt --targets-only --context-only --seed 42
 
-# 运行人工样本测试
+# Run tests on synthetic records.
 python3 -B -m unittest -v test_misspell
 ```
 
-`examples/vocab.txt` 是很小的演示词表。正式构造数据时应使用自己的完整词表；词表排除检查不等于证明拼写从未出现在模型训练中。
+The example vocabulary is for demonstration. Use an appropriate exclusion vocabulary for actual experiments.
 
-输入格式、结构化变体、预测评分和完整参数见[数据工具使用说明](docs/data-tools.md)。论文评测设计与尚未发布的部分见[评测与发布范围](docs/evaluation.md)。
+See the [tool guide](docs/data-tools.md) for formats, annotated variants, and scoring, and [evaluation and release scope](docs/evaluation.md) for how the released tools relate to the experiments. These detailed guides are currently in Chinese.
 
-## 引用
-
-如使用本文方法或相关工具，请引用：
+## Citation
 
 ```bibtex
 @misc{xu2026proncft,
@@ -80,14 +80,12 @@ python3 -B -m unittest -v test_misspell
   year={2026},
   eprint={2610.25766},
   archivePrefix={arXiv},
-  primaryClass={eess.AS},
-  url={https://arxiv.org/abs/2610.25766}
+  primaryClass={eess.AS}
 }
 ```
 
-另提供 [CITATION.cff](CITATION.cff)，便于引用论文。
+A machine-readable citation is available in [CITATION.cff](CITATION.cff).
 
-## 代码与数据授权
+## License
 
-部分脚本保留原有版权声明；仓库当前尚未提供代码许可证。第三方语音数据和词表应分别遵守其原始许可。人工示例不包含论文完整测试集。
-
+Existing copyright notices are retained. A code license has not yet been provided. Third-party speech datasets and vocabularies remain subject to their respective licenses.
